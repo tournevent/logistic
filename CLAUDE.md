@@ -63,7 +63,7 @@ Serves as a Hasura Actions backend for shipping operations (quote, order, label,
 
 Each carrier has a layered architecture:
 
-```
+```text
 pkg/shipper/<carrier>/
 ├── api.go       # APIClient interface + request/response types
 ├── api_mock.go  # MockAPIClient for testing
