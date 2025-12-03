@@ -6,6 +6,3 @@ rules:
   document-start: disable
   braces:
     max-spaces-inside: -1
-
-ignore:
-  - chart/templates/
