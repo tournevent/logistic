@@ -17,15 +17,19 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /logistic .
 
 # Runtime stage
-FROM gcr.io/distroless/static:nonroot
+FROM alpine:latest
 
 WORKDIR /app
+
+# Install ca-certificates for HTTPS calls
+RUN apk add --no-cache ca-certificates
 
 # Copy binary from builder
 COPY --from=builder /logistic /app/logistic
 
-# Run as non-root user
-USER nonroot:nonroot
+# Create non-root user
+RUN adduser -D -u 65532 appuser
+USER appuser
 
 # Expose port
 EXPOSE 80
