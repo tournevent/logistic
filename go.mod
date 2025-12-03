@@ -1,6 +1,6 @@
 module github.com/tournevent/logistic
 
-go 1.24.0
+go 1.23.0
 
 require (
 	github.com/99designs/gqlgen v0.17.84
