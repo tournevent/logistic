@@ -1,0 +1,393 @@
+# Delivro Logistics GraphQL Schema
+# Hasura Actions Backend for Multi-Carrier Shipping
+# Version: 1.0.0
+# Carriers: Freightcom, Canada Post, Purolator
+
+# ============================================================================
+# Scalar Types
+# ============================================================================
+
+scalar DateTime
+scalar Decimal
+
+# ============================================================================
+# Enums
+# ============================================================================
+
+"""
+Normalized shipment status across all carriers.
+"""
+enum ShipmentStatus {
+  PENDING
+  QUOTED
+  CONFIRMED
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  EXCEPTION
+}
+
+"""
+Supported carrier identifiers.
+"""
+enum Carrier {
+  FREIGHTCOM
+  CANADA_POST
+  PUROLATOR
+}
+
+"""
+Service type classification.
+"""
+enum ServiceType {
+  STANDARD
+  EXPRESS
+  PRIORITY
+  OVERNIGHT
+  ECONOMY
+  FREIGHT
+}
+
+"""
+Package type classification.
+"""
+enum PackageType {
+  BOX
+  ENVELOPE
+  TUBE
+  PALLET
+  CUSTOM
+}
+
+"""
+Weight unit of measurement.
+"""
+enum WeightUnit {
+  KG
+  LB
+}
+
+"""
+Dimension unit of measurement.
+"""
+enum DimensionUnit {
+  CM
+  IN
+}
+
+"""
+Label format for shipping labels.
+"""
+enum LabelFormat {
+  PDF
+  PNG
+  ZPL
+}
+
+# ============================================================================
+# Common Types (Output)
+# ============================================================================
+
+"""
+Physical address for origin/destination.
+"""
+type Address {
+  name: String!
+  company: String
+  line1: String!
+  line2: String
+  city: String!
+  provinceCode: String!
+  postalCode: String!
+  countryCode: String!
+  phone: String!
+  email: String
+  instructions: String
+  isResidential: Boolean
+}
+
+"""
+Package dimensions and weight.
+"""
+type Package {
+  id: ID
+  length: Decimal!
+  width: Decimal!
+  height: Decimal!
+  dimensionUnit: DimensionUnit!
+  weight: Decimal!
+  weightUnit: WeightUnit!
+  packageType: PackageType!
+  description: String
+  declaredValue: Decimal
+  currency: String
+}
+
+"""
+Monetary amount.
+"""
+type Money {
+  amount: Decimal!
+  currency: String!
+}
+
+"""
+Shipping rate option returned from quote.
+"""
+type RateOption {
+  rateId: ID!
+  carrier: Carrier!
+  serviceCode: String!
+  serviceName: String!
+  serviceType: ServiceType!
+  baseRate: Money!
+  fuelSurcharge: Money
+  taxes: Money!
+  totalPrice: Money!
+  transitDays: Int
+  estimatedDelivery: DateTime
+  expiresAt: DateTime!
+  signatureRequired: Boolean
+  guaranteed: Boolean
+}
+
+"""
+Shipping label information.
+"""
+type Label {
+  format: LabelFormat!
+  data: String
+  url: String
+  expiresAt: DateTime
+}
+
+"""
+Standard error information.
+"""
+type Error {
+  code: String!
+  message: String!
+  field: String
+  carrierCode: String
+}
+
+"""
+Response metadata for debugging.
+"""
+type ResponseMetadata {
+  requestId: ID!
+  processedAt: DateTime!
+  carrier: Carrier
+  carrierRefId: String
+}
+
+# ============================================================================
+# Input Types
+# ============================================================================
+
+"""
+Address input for requests.
+"""
+input AddressInput {
+  name: String!
+  company: String
+  line1: String!
+  line2: String
+  city: String!
+  provinceCode: String!
+  postalCode: String!
+  countryCode: String = "CA"
+  phone: String!
+  email: String
+  instructions: String
+  isResidential: Boolean = false
+}
+
+"""
+Contact input for sender/recipient.
+"""
+input ContactInput {
+  name: String!
+  company: String
+  phone: String!
+  email: String
+  taxId: String
+}
+
+"""
+Package input for requests.
+"""
+input PackageInput {
+  length: Decimal!
+  width: Decimal!
+  height: Decimal!
+  dimensionUnit: DimensionUnit = CM
+  weight: Decimal!
+  weightUnit: WeightUnit = KG
+  packageType: PackageType = BOX
+  description: String
+  declaredValue: Decimal
+  currency: String = "CAD"
+}
+
+"""
+Shipping options/preferences.
+"""
+input ShippingOptionsInput {
+  carriers: [Carrier!]
+  serviceTypes: [ServiceType!]
+  signatureRequired: Boolean = false
+  insuranceRequired: Boolean = false
+  saturdayDelivery: Boolean = false
+  shipDate: DateTime
+}
+
+# ============================================================================
+# Mutation Input Types
+# ============================================================================
+
+"""
+Input for getting shipping quotes.
+"""
+input GetQuoteInput {
+  shipperId: ID!
+  origin: AddressInput!
+  destination: AddressInput!
+  packages: [PackageInput!]!
+  options: ShippingOptionsInput
+}
+
+"""
+Input for creating a shipping order.
+"""
+input CreateOrderInput {
+  shipperId: ID!
+  quoteId: ID
+  rateId: ID!
+  sender: ContactInput!
+  senderAddress: AddressInput!
+  recipient: ContactInput!
+  recipientAddress: AddressInput!
+  packages: [PackageInput!]!
+  reference: String
+  poNumber: String
+  instructions: String
+}
+
+"""
+Input for getting shipping label.
+"""
+input GetLabelInput {
+  orderId: ID!
+  format: LabelFormat = PDF
+}
+
+"""
+Input for cancelling an order.
+"""
+input CancelOrderInput {
+  orderId: ID!
+  reason: String
+}
+
+# ============================================================================
+# Response Types
+# ============================================================================
+
+"""
+Response for delivro_get_quote mutation.
+"""
+type QuoteResponse {
+  success: Boolean!
+  quoteId: ID
+  rates: [RateOption!]
+  errors: [Error!]
+  metadata: ResponseMetadata!
+}
+
+"""
+Response for delivro_create_order mutation.
+"""
+type OrderResponse {
+  success: Boolean!
+  orderId: ID
+  trackingNumber: String
+  trackingUrl: String
+  status: ShipmentStatus
+  carrier: Carrier
+  serviceName: String
+  totalCharged: Money
+  estimatedDelivery: DateTime
+  labelUrl: String
+  errors: [Error!]
+  metadata: ResponseMetadata!
+}
+
+"""
+Response for delivro_get_label mutation.
+"""
+type LabelResponse {
+  success: Boolean!
+  orderId: ID
+  label: Label
+  additionalLabels: [Label!]
+  errors: [Error!]
+  metadata: ResponseMetadata!
+}
+
+"""
+Response for delivro_cancel_order mutation.
+"""
+type CancelResponse {
+  success: Boolean!
+  orderId: ID
+  status: ShipmentStatus
+  refundAmount: Money
+  confirmationNumber: String
+  errors: [Error!]
+  metadata: ResponseMetadata!
+}
+
+# ============================================================================
+# Query Root
+# ============================================================================
+
+type Query {
+  """Health check endpoint"""
+  health: Boolean!
+
+  """Get supported carriers"""
+  carriers: [Carrier!]!
+
+  """Get service types"""
+  serviceTypes: [ServiceType!]!
+}
+
+# ============================================================================
+# Mutation Root (Hasura Actions)
+# ============================================================================
+
+type Mutation {
+  """
+  Get shipping quotes from available carriers.
+  """
+  delivro_get_quote(input: GetQuoteInput!): QuoteResponse!
+
+  """
+  Create a shipping order with selected rate.
+  """
+  delivro_create_order(input: CreateOrderInput!): OrderResponse!
+
+  """
+  Get shipping label(s) for an order.
+  """
+  delivro_get_label(input: GetLabelInput!): LabelResponse!
+
+  """
+  Cancel a shipping order.
+  """
+  delivro_cancel_order(input: CancelOrderInput!): CancelResponse!
+}

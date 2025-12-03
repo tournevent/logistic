@@ -1,0 +1,14 @@
+---
+apiVersion: v2
+name: logistic
+description: Delivro Logistics Bridge - GraphQL service for shipping
+type: application
+version: 0.1.0
+appVersion: "0.0.0"
+keywords:
+  - graphql
+  - logistics
+  - shipping
+  - hasura
+maintainers:
+  - name: Delivro Team

@@ -1,0 +1,89 @@
+---
+replicaCount: 1
+
+image:
+  repository: ghcr.io/tournevent/logistic
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+env:
+  port: "80"
+  logLevel: "info"
+  freightcomEnabled: "true"
+  freightcomUseMock: "false"
+  canadapostEnabled: "true"
+  canadapostUseMock: "false"
+  purolatorEnabled: "true"
+  purolatorUseMock: "false"
+  otelEnabled: "true"
+
+existingSecret: ""
+
+secret:
+  create: false
+  freightcomApiKey: ""
+  canadapostApiKey: ""
+  canadapostAccountId: ""
+  purolatorUsername: ""
+  purolatorPassword: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
