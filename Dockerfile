@@ -8,13 +8,13 @@ RUN apk add --no-cache git ca-certificates
 
 # Copy go mod files first for caching
 COPY go.mod go.sum* ./
-RUN go mod download && go mod tidy
+RUN go mod download
 
 # Copy source code
 COPY . .
 
-# Build binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /logistic .
+# Tidy and build binary
+RUN go mod tidy && CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /logistic .
 
 # Runtime stage
 FROM alpine:latest
