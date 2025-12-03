@@ -3,3 +3,9 @@ extends: default
 rules:
   line-length:
     max: 140
+  document-start: disable
+  braces:
+    max-spaces-inside: -1
+
+ignore:
+  - chart/templates/
