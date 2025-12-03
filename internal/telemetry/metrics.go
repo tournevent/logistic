@@ -1,6 +1,8 @@
 package telemetry
 
 import (
+	"sync"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -12,32 +14,42 @@ type Metrics struct {
 	CarrierErrors   *prometheus.CounterVec
 }
 
+var (
+	globalMetrics *Metrics
+	metricsOnce   sync.Once
+)
+
 // NewMetrics creates and registers Prometheus metrics.
+// It uses sync.Once to ensure metrics are only registered once to avoid
+// duplicate registration panics when called multiple times (e.g., in tests).
 func NewMetrics() *Metrics {
-	return &Metrics{
-		RequestsTotal: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "delivro_requests_total",
-				Help: "Total number of requests by operation, carrier, and status",
-			},
-			[]string{"operation", "carrier", "status"},
-		),
-		RequestDuration: promauto.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Name:    "delivro_request_duration_seconds",
-				Help:    "Request duration in seconds by operation and carrier",
-				Buckets: prometheus.DefBuckets,
-			},
-			[]string{"operation", "carrier"},
-		),
-		CarrierErrors: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "delivro_carrier_errors_total",
-				Help: "Total carrier API errors by carrier and error type",
-			},
-			[]string{"carrier", "error_type"},
-		),
-	}
+	metricsOnce.Do(func() {
+		globalMetrics = &Metrics{
+			RequestsTotal: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "delivro_requests_total",
+					Help: "Total number of requests by operation, carrier, and status",
+				},
+				[]string{"operation", "carrier", "status"},
+			),
+			RequestDuration: promauto.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Name:    "delivro_request_duration_seconds",
+					Help:    "Request duration in seconds by operation and carrier",
+					Buckets: prometheus.DefBuckets,
+				},
+				[]string{"operation", "carrier"},
+			),
+			CarrierErrors: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "delivro_carrier_errors_total",
+					Help: "Total carrier API errors by carrier and error type",
+				},
+				[]string{"carrier", "error_type"},
+			),
+		}
+	})
+	return globalMetrics
 }
 
 // RecordRequest records a request metric.
