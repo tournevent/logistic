@@ -413,11 +413,7 @@ func (c *HTTPAPIClient) CreateShipment(ctx context.Context, req *ShipmentRequest
 func (c *HTTPAPIClient) convertShipmentResponse(resp *shipmentInfoResponse) *ShipmentResponse {
 	links := make([]Link, len(resp.Links.Link))
 	for i, l := range resp.Links.Link {
-		links[i] = Link{
-			Rel:       l.Rel,
-			Href:      l.Href,
-			MediaType: l.MediaType,
-		}
+		links[i] = Link(l)
 	}
 
 	return &ShipmentResponse{
