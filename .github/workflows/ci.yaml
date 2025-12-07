@@ -6,81 +6,129 @@ name: CI
     branches: [master]
     tags: ["v*"]
   pull_request:
+    branches: [master]
+  workflow_dispatch:
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
+  packages: read
 
 jobs:
   lint:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/transform-ia/claude-image:0.1.2
-      options: --user 0
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GH_PAT }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Lint YAML
-        run: yamllint .
-
       - name: Lint Markdown
-        run: markdownlint .
+        if: hashFiles('**/*.md') != ''
+        uses: DavidAnson/markdownlint-cli2-action@v21
 
-  lint-go:
+      - name: Lint Dockerfile
+        if: hashFiles('Dockerfile') != ''
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+
+      - name: Lint YAML
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: .
+
+      - name: Lint Helm chart
+        if: hashFiles('**/Chart.yaml') != ''
+        run: helm lint chart
+
+      - uses: actions/setup-go@v5
+        if: hashFiles('go.mod') != ''
+        with:
+          go-version-file: go.mod
+
+      - name: Tidy Go modules
+        if: hashFiles('go.mod') != ''
+        run: go mod tidy
+
+      - name: Lint Go
+        if: hashFiles('go.mod') != ''
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
+
+  test:
     runs-on: ubuntu-latest
+    needs: lint
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: true
 
-      - name: Download dependencies
-        run: go mod download && go mod tidy
+      - name: Tidy Go modules
+        run: go mod tidy
 
-      - uses: golangci/golangci-lint-action@v6
-        with:
-          args: --fix ./...
+      - name: Run Go tests
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
 
-      - name: Test
-        run: go test -v -race ./...
-
-  build:
-    needs: [lint, lint-go]
+  release:
+    needs: [lint, test]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
       - uses: docker/setup-buildx-action@v3
-
-      - name: Extract version
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        if: hashFiles('Dockerfile') != ''
 
       - uses: docker/login-action@v3
+        if: hashFiles('Dockerfile') != ''
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract version
+        id: meta
+        run: |
+          echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          if [ -f chart/Chart.yaml ]; then
+            echo "chart=$(yq '.name' chart/Chart.yaml)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update Chart version
+        if: hashFiles('**/Chart.yaml') != ''
+        run: yq -i ".version = \"${{ steps.meta.outputs.version }}\"" chart/Chart.yaml
+
+      - uses: docker/metadata-action@v5
+        if: hashFiles('Dockerfile') != ''
+        id: docker_meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
       - uses: docker/build-push-action@v6
+        if: hashFiles('Dockerfile') != ''
         with:
           context: .
           platforms: linux/amd64
           push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
-            ghcr.io/${{ github.repository }}:latest
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: azure/setup-helm@v4
+        if: hashFiles('**/Chart.yaml') != ''
+
+      - name: Package and push Helm chart
+        if: hashFiles('**/Chart.yaml') != ''
+        run: |
+          helm package chart
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+          helm push ${{ steps.meta.outputs.chart }}-${{ steps.meta.outputs.version }}.tgz oci://ghcr.io/${{ github.repository_owner }}
