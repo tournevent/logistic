@@ -49,7 +49,7 @@ jobs:
 
       - name: Lint Go
         if: hashFiles('go.mod') != ''
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
 
