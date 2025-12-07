@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25.5-alpine3.22 AS builder
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ COPY . .
 RUN go mod tidy && CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /logistic .
 
 # Runtime stage
-FROM alpine:latest
+FROM alpine:3.22.2
 
 WORKDIR /app
 
@@ -28,7 +28,7 @@ RUN apk add --no-cache ca-certificates
 COPY --from=builder /logistic /app/logistic
 
 # Create non-root user
-RUN adduser -D -u 65532 appuser
+RUN adduser -D -u 1000 appuser
 USER appuser
 
 # Expose port
