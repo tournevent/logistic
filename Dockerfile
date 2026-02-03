@@ -17,7 +17,7 @@ COPY . .
 RUN go mod tidy && CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /logistic .
 
 # Runtime stage
-FROM alpine:3.23.2
+FROM alpine:3.23.3
 
 WORKDIR /app
 
