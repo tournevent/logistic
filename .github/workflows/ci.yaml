@@ -114,7 +114,7 @@ jobs:
         if: hashFiles('**/Chart.yaml') != ''
         run: yq -i ".version = \"${{ steps.meta.outputs.version }}\"" ${{ steps.meta.outputs.chartdir }}/Chart.yaml
 
-      - uses: docker/metadata-action@v5
+      - uses: docker/metadata-action@v6
         if: hashFiles('Dockerfile') != ''
         id: docker_meta
         with:
