@@ -135,7 +135,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
         if: hashFiles('**/Chart.yaml') != ''
 
       - name: Package and push Helm chart
